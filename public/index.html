@@ -34,11 +34,19 @@
               <span class="active-job"></span>
               <small class="active-state"></small>
             </h2>
-            <ul id="select-jobs" class="nav nav-pills">
-              <li role="presentation"><a role="button" data-action="schedule-job">Schedule job</a></li>
-              <li role="presentation"><a role="button" data-action="select-all">Select all</a></li>
-              <li role="presentation"><a role="button" data-action="select-none">Select none</a></li>
-            </ul>
+            <div class="control-container" style="display: flex; flex-direction: row; justify-content: space-between;">
+              <ul id="select-jobs" class="nav nav-pills">
+                <li role="presentation"><a role="button" data-action="schedule-job">Schedule job</a></li>
+                <li role="presentation"><a role="button" data-action="select-all">Select all</a></li>
+                <li role="presentation"><a role="button" data-action="select-none">Select none</a></li>
+              </ul>
+              <ul id="page-pagination" class="nav nav-pills">
+                <li><a role="button" data-action="first-page">First Page</a></li>
+                <li><a role="button" data-action="prev-page">Previous Page</a></li>
+                <li><a role="button" data-action="next-page">Next Page</a></li>
+                <li><a role="button" data-action="last-page">Last Page</a></li>
+              </ul>
+            </div>
             <div class="clearfix"></div>
           </div>
           <div class="table-responsive">

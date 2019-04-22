@@ -3,7 +3,18 @@ $(function () {
   var CurrentRequestModel = Backbone.Model.extend({
     defaults: {
       refreshInterval: 2000,
-      overviewFilterRegex: /.*/
+      overviewFilterRegex: /.*/,
+      limit: 20,
+      offset: 0,
+    }
+  })
+
+  var CurrentList = Backbone.Model.extend({
+    defaults: {
+      job: "",
+      state: "",
+      length: 0,
+      lastOffset: 0,
     }
   })
 
@@ -285,6 +296,38 @@ $(function () {
     }
   })
 
+  var PagePagination = Backbone.View.extend({
+    el: '#page-pagination',
+    initialize: function(options){
+      this.currentRequest = options.currentRequest;
+      this.currentList = options.currentList;
+      _.bindAll(this, 'firstPage', 'prevPage', 'nextPage', 'lastPage');
+    },
+    events: {
+      'click [data-action=first-page]' : 'firstPage',
+      'click [data-action=prev-page]' : 'prevPage',
+      'click [data-action=next-page]' : 'nextPage',
+      'click [data-action=last-page]' : 'lastPage',
+    },
+    firstPage: function(){ 
+      this.currentRequest.set('offset',0);
+    },
+    prevPage: function(){
+      const nowOffset = parseInt(this.currentRequest.get('offset'));
+      const limit = parseInt(this.currentRequest.get('limit'));
+      this.currentRequest.set('offset', nowOffset - limit > 0 ? nowOffset - limit : 0);
+    },
+    nextPage: function(){
+      const nowOffset = parseInt(this.currentRequest.get('offset'));
+      const limit = parseInt(this.currentRequest.get('limit'));
+      const offset = nowOffset + limit <= this.currentList.get('length') ? nowOffset + limit : this.currentList.get('lastOffset');
+      this.currentRequest.set('offset', offset);
+    },
+    lastPage: function(){
+      this.currentRequest.set('offset',this.currentList.get('lastOffset'));
+    }
+  })
+
   var CreateJobPaneView = Backbone.View.extend({
     el: '#create-job-pane',
     initialize: function (options) {
@@ -330,13 +373,16 @@ $(function () {
         'handleRequestChange',
         'handleShowJobDetails',
         'fetchData',
-        'resultsFetched'
+        'resultsFetched',
+        'updateNowListStat',
+        'updateLastOffset'
       )
 
       this.activeTitle = new ActiveTitleModel()
       this.currentRequest = new CurrentRequestModel()
       this.overviewItems = new OverviewItemCollection()
       this.jobItems = new JobItemCollection()
+      this.currentList = new CurrentList();
 
       this.activeTitleView = new ActiveTitleView({
         activeTitle: this.activeTitle
@@ -362,6 +408,10 @@ $(function () {
       })
       this.createJobPaneView = new CreateJobPaneView({
       })
+      this.pagePagination = new PagePagination({
+        currentRequest: this.currentRequest,
+        currentList: this.currentList,
+      })
 
       this.listenTo(this, 'requestChange', this.handleRequestChange)
       this.listenTo(this, 'showJobDetails', this.handleShowJobDetails)
@@ -381,10 +431,14 @@ $(function () {
       this._fetchTimeout && clearTimeout(this._fetchTimeout)
       this._fetchRequest = $.get('api', {
         job: this.currentRequest.get('job'),
-        state: this.currentRequest.get('state')
+        state: this.currentRequest.get('state'),
+        limit: this.currentRequest.get('limit'),
+        offset: this.currentRequest.get('offset')
       }).success(this.resultsFetched)
     },
     resultsFetched: function (results) {
+      // console.log("hello ", results.overview);
+      this.updateNowListStat(results.overview);
       this.overviewItems.set(results.overview)
       this.activeTitle.set({
         job: results.currentRequest.job,
@@ -393,6 +447,40 @@ $(function () {
       this.render(results)
       this.jobItems.set(results.jobs)
       this._fetchTimeout = setTimeout(this.fetchData, this.currentRequest.get('refreshInterval'))
+    },
+    updateNowListStat: function(overview){
+      const currentJob = this.currentRequest.get("job") || "all";
+      const state = this.currentRequest.get("state") || "total"
+
+      this.currentList.set('job', currentJob);
+      this.currentList.set('state', state);
+      if(currentJob === 'all'){
+        this.currentList.set('length', overview[0][state]);
+        this.updateLastOffset();
+        // console.log(this.currentList.get('length'));
+      }
+      else{
+        let _cur = overview.filter((item) => {
+          if(item._id === currentJob){
+            this.currentList.set('length', item[state]);
+            this.updateLastOffset();
+            // console.log(this.currentList.get('length'));
+          }
+        })
+      }
+    },
+    updateLastOffset: function(){
+      const length = this.currentList.get('length');
+      const limit = this.currentRequest.get('limit');
+      
+      if(length <= 0){
+        this.currentList.set("lastOffset", 0);
+        return;
+      }
+
+      let lastOffset = Math.floor(length / limit) * limit;
+      this.currentList.set("lastOffset", lastOffset);
+      // console.log(this.currentList.get("lastOffset"));
     },
     render: function (results) {
       document.title = results.title
